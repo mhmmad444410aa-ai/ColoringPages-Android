@@ -24,6 +24,7 @@ jobs:
           mkdir -p source
           unzip -q ColoringPages_Source.zip -d source
           cp .github/patches/ChildSafeBanner.kt source/ColoringPages/app/src/main/java/com/mhmmad/coloringpages/ads/ChildSafeBanner.kt
+          python3 .github/patches/remove_ad_choice.py
           sed -i 's/it=="android.permission.INTERNET" || //; s/offlinePackageDeclaresNoNetworkOrDangerousPermissions/appWithAdsDeclaresNoDangerousPermissions/' source/ColoringPages/app/src/test/java/com/mhmmad/coloringpages/StorageAndGraphicsTest.kt
           test -f source/ColoringPages/gradlew
           chmod +x source/ColoringPages/gradlew
@@ -102,6 +103,7 @@ jobs:
           mkdir -p source
           unzip -q ColoringPages_Source.zip -d source
           cp .github/patches/ChildSafeBanner.kt source/ColoringPages/app/src/main/java/com/mhmmad/coloringpages/ads/ChildSafeBanner.kt
+          python3 .github/patches/remove_ad_choice.py
           sed -i 's/it=="android.permission.INTERNET" || //; s/offlinePackageDeclaresNoNetworkOrDangerousPermissions/appWithAdsDeclaresNoDangerousPermissions/' source/ColoringPages/app/src/test/java/com/mhmmad/coloringpages/StorageAndGraphicsTest.kt
           chmod +x source/ColoringPages/gradlew
       - uses: actions/setup-java@v4
