@@ -24,6 +24,7 @@ jobs:
           mkdir -p source
           unzip -q ColoringPages_Source.zip -d source
           cp .github/patches/ChildSafeBanner.kt source/ColoringPages/app/src/main/java/com/mhmmad/coloringpages/ads/ChildSafeBanner.kt
+          sed -i 's/it=="android.permission.INTERNET" || //; s/offlinePackageDeclaresNoNetworkOrDangerousPermissions/appWithAdsDeclaresNoDangerousPermissions/' source/ColoringPages/app/src/test/java/com/mhmmad/coloringpages/StorageAndGraphicsTest.kt
           test -f source/ColoringPages/gradlew
           chmod +x source/ColoringPages/gradlew
           grep -Rq 'k1i3em3bm0' source/ColoringPages/app/src/main/java
@@ -49,6 +50,17 @@ jobs:
       - name: Run unit tests
         working-directory: source/ColoringPages
         run: ./gradlew --no-daemon :app:testDebugUnitTest
+
+      - name: Build unsigned release APK
+        working-directory: source/ColoringPages
+        run: ./gradlew --no-daemon :app:assembleRelease
+      - name: Upload unsigned release APK for private offline signing
+        uses: actions/upload-artifact@v4
+        with:
+          name: ColoringPages-1.2.0-unsigned-release
+          path: source/ColoringPages/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
+          retention-days: 7
 
   signed-release:
     runs-on: ubuntu-24.04
@@ -76,6 +88,7 @@ jobs:
           mkdir -p source
           unzip -q ColoringPages_Source.zip -d source
           cp .github/patches/ChildSafeBanner.kt source/ColoringPages/app/src/main/java/com/mhmmad/coloringpages/ads/ChildSafeBanner.kt
+          sed -i 's/it=="android.permission.INTERNET" || //; s/offlinePackageDeclaresNoNetworkOrDangerousPermissions/appWithAdsDeclaresNoDangerousPermissions/' source/ColoringPages/app/src/test/java/com/mhmmad/coloringpages/StorageAndGraphicsTest.kt
           chmod +x source/ColoringPages/gradlew
       - uses: actions/setup-java@v4
         if: steps.signing.outputs.available == 'true'
