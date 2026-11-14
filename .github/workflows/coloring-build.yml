@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
     paths:
-      - 'ColoringPages_1.2.0_HuaweiAds_Source.zip'
+      - 'ColoringPages_Source.zip'
+      - '.github/workflows/coloring-build.yml'
 permissions:
   contents: read
 jobs:
@@ -18,9 +19,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -s ColoringPages_1.2.0_HuaweiAds_Source.zip || { echo "::error::Upload the named ZIP to the repository root"; exit 1; }
+          test -s ColoringPages_Source.zip || { echo "::error::Upload the named ZIP to the repository root"; exit 1; }
           mkdir -p source
-          unzip -q ColoringPages_1.2.0_HuaweiAds_Source.zip -d source
+          unzip -q ColoringPages_Source.zip -d source
           test -f source/ColoringPages/gradlew
           chmod +x source/ColoringPages/gradlew
           grep -Rq 'k1i3em3bm0' source/ColoringPages/app/src/main/java
