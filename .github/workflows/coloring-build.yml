@@ -1,4 +1,4 @@
-name: Build Coloring Pages 1.2.0 signed APK
+name: Build Coloring Pages 1.2.0 APK
 on:
   workflow_dispatch:
   push:
@@ -8,38 +8,86 @@ on:
       - '.github/workflows/coloring-build.yml'
 permissions:
   contents: read
+
 jobs:
-  signed-release:
+  debug-apk:
     runs-on: ubuntu-24.04
-    timeout-minutes: 55
+    timeout-minutes: 45
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Extract the Android project
+      - uses: actions/checkout@v4
+      - name: Extract project and verify ad IDs
         shell: bash
         run: |
           set -euo pipefail
-          test -s ColoringPages_Source.zip || { echo "::error::Upload the named ZIP to the repository root"; exit 1; }
+          test -s ColoringPages_Source.zip
           mkdir -p source
           unzip -q ColoringPages_Source.zip -d source
           test -f source/ColoringPages/gradlew
           chmod +x source/ColoringPages/gradlew
           grep -Rq 'k1i3em3bm0' source/ColoringPages/app/src/main/java
           grep -Rq 's9jruxhcil' source/ColoringPages/app/src/main/java
-      - name: Install Java 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          cmdline-tools-version: '13114758'
-      - name: Install Android 36
+      - uses: android-actions/setup-android@v4
+      - name: Install SDK
         run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-      - name: Compile, test and sign APK/AAB
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build test APK
+        working-directory: source/ColoringPages
+        run: ./gradlew --no-daemon :app:assembleDebug
+      - name: Upload test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ColoringPages-1.2.0-debug-APK
+          path: source/ColoringPages/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Run unit tests
+        working-directory: source/ColoringPages
+        run: ./gradlew --no-daemon :app:testDebugUnitTest
+
+  signed-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check signing secrets
+        id: signing
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+        shell: bash
+        run: |
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ] && [ -n "$RELEASE_STORE_PASSWORD" ] && [ -n "$RELEASE_KEY_PASSWORD" ] && [ -n "$RELEASE_KEY_ALIAS" ]; then
+            echo 'available=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+            echo 'Signing not configured: add the four Actions secrets, then rerun this workflow.'
+          fi
+      - name: Extract project
+        if: steps.signing.outputs.available == 'true'
+        run: |
+          mkdir -p source
+          unzip -q ColoringPages_Source.zip -d source
+          chmod +x source/ColoringPages/gradlew
+      - uses: actions/setup-java@v4
+        if: steps.signing.outputs.available == 'true'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        if: steps.signing.outputs.available == 'true'
+      - name: Install SDK
+        if: steps.signing.outputs.available == 'true'
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.signing.outputs.available == 'true'
+      - name: Sign APK and AAB
+        if: steps.signing.outputs.available == 'true'
         working-directory: source/ColoringPages
         shell: bash
         env:
@@ -49,39 +97,22 @@ jobs:
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
         run: |
           set -euo pipefail
-          for v in RELEASE_KEYSTORE_BASE64 RELEASE_STORE_PASSWORD RELEASE_KEY_PASSWORD RELEASE_KEY_ALIAS; do
-            if [ -z "${!v:-}" ]; then
-              echo "::error::Missing GitHub Actions secret: $v"
-              exit 1
-            fi
-          done
           export RELEASE_STORE_FILE="$RUNNER_TEMP/coloring-release.jks"
           trap 'rm -f "$RELEASE_STORE_FILE"' EXIT
           printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RELEASE_STORE_FILE"
           chmod 600 "$RELEASE_STORE_FILE"
-          ./gradlew --no-daemon :app:testDebugUnitTest :app:lintRelease :app:assembleRelease :app:bundleRelease
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk | tee "$RUNNER_TEMP/signature.txt"
-          if ! grep -qi '183d97970c11c9705ca6e5b3773c2839125ba918595f9ce879757d37aaeb57d4' "$RUNNER_TEMP/signature.txt"; then
-            echo "::error::Signing certificate differs from original 1.1.0 release"
-            exit 1
-          fi
+          ./gradlew --no-daemon :app:lintRelease :app:assembleRelease :app:bundleRelease
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk > "$RUNNER_TEMP/signature.txt"
+          cat "$RUNNER_TEMP/signature.txt"
+          grep -qi '183d97970c11c9705ca6e5b3773c2839125ba918595f9ce879757d37aaeb57d4' "$RUNNER_TEMP/signature.txt" || { echo "::error::Signing certificate mismatch"; exit 1; }
           sha256sum app/build/outputs/apk/release/app-release.apk app/build/outputs/bundle/release/app-release.aab
-      - name: Upload signed APK/AAB
+      - name: Upload signed release
+        if: steps.signing.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: ColoringPages-1.2.0-signed-release
+          name: ColoringPages-1.2.0-signed-APK-AAB
           path: |
             source/ColoringPages/app/build/outputs/apk/release/app-release.apk
             source/ColoringPages/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 30
-      - name: Upload build diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-diagnostics
-          path: |
-            source/ColoringPages/app/build/reports/
-            source/ColoringPages/app/build/test-results/
-          if-no-files-found: ignore
-          retention-days: 7
