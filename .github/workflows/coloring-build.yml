@@ -6,6 +6,7 @@ on:
     paths:
       - 'ColoringPages_Source.zip'
       - '.github/workflows/coloring-build.yml'
+      - '.github/patches/**'
 permissions:
   contents: read
 
@@ -22,6 +23,7 @@ jobs:
           test -s ColoringPages_Source.zip
           mkdir -p source
           unzip -q ColoringPages_Source.zip -d source
+          cp .github/patches/ChildSafeBanner.kt source/ColoringPages/app/src/main/java/com/mhmmad/coloringpages/ads/ChildSafeBanner.kt
           test -f source/ColoringPages/gradlew
           chmod +x source/ColoringPages/gradlew
           grep -Rq 'k1i3em3bm0' source/ColoringPages/app/src/main/java
@@ -73,6 +75,7 @@ jobs:
         run: |
           mkdir -p source
           unzip -q ColoringPages_Source.zip -d source
+          cp .github/patches/ChildSafeBanner.kt source/ColoringPages/app/src/main/java/com/mhmmad/coloringpages/ads/ChildSafeBanner.kt
           chmod +x source/ColoringPages/gradlew
       - uses: actions/setup-java@v4
         if: steps.signing.outputs.available == 'true'
