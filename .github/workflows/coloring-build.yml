@@ -42,7 +42,7 @@ jobs:
         working-directory: source/ColoringPages
         run: ./gradlew --no-daemon :app:assembleDebug
       - name: Upload test APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ColoringPages-1.2.0-debug-APK
           path: source/ColoringPages/app/build/outputs/apk/debug/app-debug.apk
@@ -60,7 +60,7 @@ jobs:
           cp "$ANDROID_HOME/build-tools/36.0.0/lib/apksigner.jar" signing-tools/lib/apksigner.jar
           cp "$ANDROID_HOME/build-tools/36.0.0/zipalign" signing-tools/zipalign
       - name: Upload signing tools for offline release signing
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Android-APK-signing-tools
           path: signing-tools/
@@ -70,7 +70,7 @@ jobs:
         working-directory: source/ColoringPages
         run: ./gradlew --no-daemon :app:assembleRelease
       - name: Upload unsigned release APK for private offline signing
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ColoringPages-1.2.0-unsigned-release
           path: source/ColoringPages/app/build/outputs/apk/release/app-release-unsigned.apk
@@ -140,7 +140,7 @@ jobs:
           sha256sum app/build/outputs/apk/release/app-release.apk app/build/outputs/bundle/release/app-release.aab
       - name: Upload signed release
         if: steps.signing.outputs.available == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ColoringPages-1.2.0-signed-APK-AAB
           path: |
